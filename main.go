@@ -11,6 +11,13 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+)
+
+// NOTE:
+// Styles
+var (
+	bg = lipgloss.AdaptiveColor{Light: "236", Dark: "248"}
 )
 
 func main() {
@@ -38,6 +45,8 @@ func New() Model {
 	ti := textinput.New()
 	ti.Placeholder = "Search word index"
 	ti.Focus()
+
+	// Set up styling
 
 	return Model{
 		title:     "Program running",
@@ -86,13 +95,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View: return a string based on the view of the model
 func (m Model) View() string {
+
 	s := m.textinput.View() + "\n\n" // Get the current state of the text input
 
 	if len(m.terms.List) > 0 {
 		s += m.terms.List[0].Definition + "\n\n"
 	}
 
-	return s
+	style := lipgloss.NewStyle().Background(bg).Bold(true).SetString(s)
+
+	return style.Render()
 }
 
 // Response Type
