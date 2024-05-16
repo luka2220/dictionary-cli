@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -18,7 +17,7 @@ import (
 // NOTE:
 // Styles
 var (
-	bg = lipgloss.Color("#4F6F52")
+	fg = lipgloss.Color("#EEEEEE")
 )
 
 func main() {
@@ -38,6 +37,7 @@ type Model struct {
 	title     string
 	terms     Terms
 	textinput textinput.Model
+	height    int
 	width     int
 	err       error
 }
@@ -66,7 +66,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Switch though msg types
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.width = msg.Width - 8
+		m.height = msg.Height
+		m.width = msg.Width
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c":
@@ -102,23 +103,18 @@ func (m Model) View() string {
 
 	if len(m.terms.List) > 0 {
 
-		// BUG:
-		// *** Possible solution to line wrapping? (currently only wraps the first set of m.width characters) ***
-		// Store a copy of Definition an a variable (text)
-		// Loop though the text variable while the len is less than m.width
-		// Slice the text string and add it to the return string
-		// Store the m.width slice result back into text to decrament it
+		w := m.width - 8
 
-		if len(m.terms.List[0].Definition) < m.width {
+		if len(m.terms.List[0].Definition) < w {
 			s += m.terms.List[0].Definition + "\n\n"
 		} else {
 			// Check if byte as index 99 in string is a space
-			if m.terms.List[0].Definition[m.width] != 32 {
-				s += m.terms.List[0].Definition[:m.width] + "-\n"
+			if m.terms.List[0].Definition[w] != 32 {
+				s += m.terms.List[0].Definition[:w] + "-\n"
 			} else {
-				s += m.terms.List[0].Definition[:m.width] + "\n"
+				s += m.terms.List[0].Definition[:w] + "\n"
 			}
-			s += m.terms.List[0].Definition[m.width:] + "\n\n"
+			s += m.terms.List[0].Definition[w:] + "\n\n"
 		}
 
 		s += m.terms.List[0].Example + "\n\n"
@@ -127,10 +123,12 @@ func (m Model) View() string {
 
 	style := lipgloss.NewStyle().
 		SetString(s).
-		Background(bg).
+		Foreground(fg).
 		Bold(true).
 		PaddingLeft(4).
-		PaddingRight(4)
+		PaddingRight(4).
+		Width(m.width).
+		Height(m.height)
 
 	return style.Render()
 }
