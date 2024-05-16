@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -17,13 +18,13 @@ import (
 // NOTE:
 // Styles
 var (
-	bg = lipgloss.AdaptiveColor{Light: "236", Dark: "248"}
+	bg = lipgloss.Color("#4F6F52")
 )
 
 func main() {
 	// initialize model and program options
 	m := New()
-	p := tea.NewProgram(m)
+	p := tea.NewProgram(m, tea.WithAltScreen())
 
 	// run the cli
 	if _, err := p.Run(); err != nil {
@@ -37,6 +38,7 @@ type Model struct {
 	title     string
 	terms     Terms
 	textinput textinput.Model
+	width     int
 	err       error
 }
 
@@ -61,10 +63,10 @@ func (m Model) Init() tea.Cmd {
 
 // Update: handle messages
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-
 	// Switch though msg types
 	switch msg := msg.(type) {
-
+	case tea.WindowSizeMsg:
+		m.width = msg.Width - 8
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c":
@@ -99,10 +101,36 @@ func (m Model) View() string {
 	s := m.textinput.View() + "\n\n" // Get the current state of the text input
 
 	if len(m.terms.List) > 0 {
-		s += m.terms.List[0].Definition + "\n\n"
+
+		// BUG:
+		// *** Possible solution to line wrapping? (currently only wraps the first set of m.width characters) ***
+		// Store a copy of Definition an a variable (text)
+		// Loop though the text variable while the len is less than m.width
+		// Slice the text string and add it to the return string
+		// Store the m.width slice result back into text to decrament it
+
+		if len(m.terms.List[0].Definition) < m.width {
+			s += m.terms.List[0].Definition + "\n\n"
+		} else {
+			// Check if byte as index 99 in string is a space
+			if m.terms.List[0].Definition[m.width] != 32 {
+				s += m.terms.List[0].Definition[:m.width] + "-\n"
+			} else {
+				s += m.terms.List[0].Definition[:m.width] + "\n"
+			}
+			s += m.terms.List[0].Definition[m.width:] + "\n\n"
+		}
+
+		s += m.terms.List[0].Example + "\n\n"
+		s += fmt.Sprintf("thumbs-up: %d\nthumbs-down: %d\n\n", m.terms.List[0].ThumbsUp, m.terms.List[0].ThumbsDown)
 	}
 
-	style := lipgloss.NewStyle().Background(bg).Bold(true).SetString(s)
+	style := lipgloss.NewStyle().
+		SetString(s).
+		Background(bg).
+		Bold(true).
+		PaddingLeft(4).
+		PaddingRight(4)
 
 	return style.Render()
 }
@@ -121,6 +149,12 @@ type Terms struct {
 		Example     string    `json:"example"`
 		ThumbsDown  int       `json:"thumbs_down"`
 	} `json:"list"`
+}
+
+// Msg
+type TermsResponseMessage struct {
+	Terms Terms
+	Err   error
 }
 
 // Cmd: talks to something outside of the event loop
@@ -161,10 +195,4 @@ func handleQuerySearch(q string) tea.Cmd {
 			Terms: wd,
 		}
 	}
-}
-
-// Msg
-type TermsResponseMessage struct {
-	Terms Terms
-	Err   error
 }
