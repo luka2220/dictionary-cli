@@ -17,13 +17,13 @@ import (
 // NOTE:
 // Styles
 var (
-	bg = lipgloss.AdaptiveColor{Light: "236", Dark: "248"}
+	fg = lipgloss.Color("#EEEEEE")
 )
 
 func main() {
 	// initialize model and program options
 	m := New()
-	p := tea.NewProgram(m)
+	p := tea.NewProgram(m, tea.WithAltScreen())
 
 	// run the cli
 	if _, err := p.Run(); err != nil {
@@ -37,6 +37,8 @@ type Model struct {
 	title     string
 	terms     Terms
 	textinput textinput.Model
+	height    int
+	width     int
 	err       error
 }
 
@@ -61,10 +63,11 @@ func (m Model) Init() tea.Cmd {
 
 // Update: handle messages
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-
 	// Switch though msg types
 	switch msg := msg.(type) {
-
+	case tea.WindowSizeMsg:
+		m.height = msg.Height
+		m.width = msg.Width
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c":
@@ -99,10 +102,33 @@ func (m Model) View() string {
 	s := m.textinput.View() + "\n\n" // Get the current state of the text input
 
 	if len(m.terms.List) > 0 {
-		s += m.terms.List[0].Definition + "\n\n"
+
+		w := m.width - 8
+
+		if len(m.terms.List[0].Definition) < w {
+			s += m.terms.List[0].Definition + "\n\n"
+		} else {
+			// Check if byte as index 99 in string is a space
+			if m.terms.List[0].Definition[w] != 32 {
+				s += m.terms.List[0].Definition[:w] + "-\n"
+			} else {
+				s += m.terms.List[0].Definition[:w] + "\n"
+			}
+			s += m.terms.List[0].Definition[w:] + "\n\n"
+		}
+
+		s += m.terms.List[0].Example + "\n\n"
+		s += fmt.Sprintf("thumbs-up: %d\nthumbs-down: %d\n\n", m.terms.List[0].ThumbsUp, m.terms.List[0].ThumbsDown)
 	}
 
-	style := lipgloss.NewStyle().Background(bg).Bold(true).SetString(s)
+	style := lipgloss.NewStyle().
+		SetString(s).
+		Foreground(fg).
+		Bold(true).
+		PaddingLeft(4).
+		PaddingRight(4).
+		Width(m.width).
+		Height(m.height)
 
 	return style.Render()
 }
@@ -121,6 +147,12 @@ type Terms struct {
 		Example     string    `json:"example"`
 		ThumbsDown  int       `json:"thumbs_down"`
 	} `json:"list"`
+}
+
+// Msg
+type TermsResponseMessage struct {
+	Terms Terms
+	Err   error
 }
 
 // Cmd: talks to something outside of the event loop
@@ -161,10 +193,4 @@ func handleQuerySearch(q string) tea.Cmd {
 			Terms: wd,
 		}
 	}
-}
-
-// Msg
-type TermsResponseMessage struct {
-	Terms Terms
-	Err   error
 }
